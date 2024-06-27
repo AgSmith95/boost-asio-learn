@@ -1,33 +1,37 @@
 #include <iostream>
-#include <thread>
-#include <chrono>
+#include <functional>
 #include <boost/asio.hpp>
 
-boost::asio::io_context io_ctx_global;
+#include <thread>
 
-void task(unsigned int id) {
-	std::cout << "task(" << id << ") t_id=" << std::this_thread::get_id() << '\n';
-	boost::asio::deadline_timer timer(io_ctx_global, boost::posix_time::millisec(100));
-	timer.wait();
-	std::cout << "task(" << id << ") finished\n";
+void print(boost::asio::steady_timer* t, int* count)
+{
+	if (*count < 5)
+	{
+		std::cout << "Tick " << *count << '\n';
+		++(*count);
+		t->expires_at(t->expiry() + boost::asio::chrono::seconds(1));
+		t->async_wait(std::bind(print, t, count));
+		return;
+	}
+	std::cout << "Printed after timer is done waiting\n";
 }
 
 int main() {
 	std::cout << "main() t_id=" << std::this_thread::get_id() << '\n' << '\n';
 	try {
-		boost::asio::io_context io_context;
-		// boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work = boost::asio::make_work_guard(io_context);
+		boost::asio::io_context io;
 
-		boost::asio::post(io_context, [](){task(0);});
-		boost::asio::post(io_context, [](){task(1);});
-		boost::asio::post(io_context, [](){task(2);});
+		int count = 0;
+		boost::asio::steady_timer t(io, boost::asio::chrono::seconds(1));
+		t.async_wait(std::bind(print, &t, &count));
 
-		io_context.run();
+		std::cout << "Print without waiting\n";
 
-		boost::asio::post(io_context, [](){task(3);}); // ignored
-		boost::asio::post(io_context, [](){task(4);}); // ignored
+		io.run();
+		std::cout << "Final count is " << count << '\n';
 	} catch (std::exception& e) {
-		std::cerr << "Exception: " << e.what() << "\n";
+		std::cerr << "Exception: " << e.what() << '\n';
 	}
 
 	return 0;

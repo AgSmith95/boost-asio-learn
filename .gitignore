@@ -1,2 +1,9 @@
+# IDEs
+.vscode/
+
+# build related
 build/
 CMakeUserPresets.json
+
+# ignored files
+foo.cpp
